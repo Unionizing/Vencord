@@ -50,6 +50,11 @@ let stringRules = makeEmptyRuleArray();
 let regexRules = makeEmptyRuleArray();
 
 const settings = definePluginSettings({
+    replaceOthers: {
+        type: OptionType.BOOLEAN,
+        description: "Whether to replace text in other's messages.",
+        default: false
+    },
     replace: {
         type: OptionType.COMPONENT,
         description: "",
@@ -245,6 +250,28 @@ export default definePlugin({
     description: "Replace text in your messages. You can find pre-made rules in the #textreplace-rules channel in Vencord's Server",
     authors: [Devs.AutumnVN, Devs.TheKodeToad],
     dependencies: ["MessageEventsAPI"],
+    patches: [{
+        find: "Dispatch.dispatch(...) called without an action type",
+        replacement: {
+            match: /}_dispatch\((\i),\i\){/,
+            replace: "$&$1=$self.modify($1);"
+        }
+    }],
+
+    modify(e) {
+
+        if (e.type === "MESSAGE_CREATE") {
+            if (e.channelId === TEXT_REPLACE_RULES_CHANNEL_ID) return e;
+            e.message.content = applyRules(e.message.content);
+        } else if (e.type === "LOAD_MESSAGES_SUCCESS") {
+            if (e.channelId === TEXT_REPLACE_RULES_CHANNEL_ID) return e;
+
+            for (let msg = 0; msg < e.messages.length; ++msg) {
+                e.messages[msg].content = applyRules(e.messages[msg].content);
+            }
+        }
+        return e;
+    },
 
     settings,
 
